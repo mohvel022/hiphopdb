@@ -758,6 +758,7 @@ api.post('/updateArtist', function (req, res) {
 
 api.post('/updateSong', function (req, res) {
     var song_name = req.body.song_name || req.query.song_name
+    var song_name_change = req.body.song_name_change || req.query.song_name_change
     var duration = req.body.duration || req.query.duration
     var sales = req.body.sales || req.query.sales
     var riaa_ranking = req.body.riaa_ranking || req.query.riaa_ranking
@@ -765,7 +766,7 @@ api.post('/updateSong', function (req, res) {
     var artist_id = req.body.artist_id || req.query.artist_id
 
     var sql = 'UPDATE song SET duration = ?, sales = ?, riaa_ranking = ?, features = ? WHERE song_name = ?;'
-    db.run(sql, [duration, sales, riaa_ranking, features, song_name], function (err) {
+    db.run(sql, [song_name_change, duration, sales, riaa_ranking, features, song_name], function (err) {
         if (err) {
             res.json({
                 type: false,
