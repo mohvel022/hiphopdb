@@ -765,7 +765,7 @@ api.post('/updateSong', function (req, res) {
     var features = req.body.features || req.query.features
     var artist_id = req.body.artist_id || req.query.artist_id
 
-    var sql = 'UPDATE song SET duration = ?, sales = ?, riaa_ranking = ?, features = ? WHERE song_name = ?;'
+    var sql = 'UPDATE song SET song_name = ?, duration = ?, sales = ?, riaa_ranking = ?, features = ? WHERE song_name = ?;'
     db.run(sql, [song_name_change, duration, sales, riaa_ranking, features, song_name], function (err) {
         if (err) {
             res.json({
