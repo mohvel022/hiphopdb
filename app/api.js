@@ -2,7 +2,10 @@ var bcrypt = require('bcrypt-nodejs');
 var express = require('express');
 var api = express.Router();
 const sqlite3 = require('sqlite3').verbose();
-var artistID = 1;
+var artistID = 5;
+var albumID;
+var tourID;
+var songID;
 
 api.use(function (req, res, next) {
     //console.log(req.body);
@@ -708,16 +711,17 @@ api.get('/sales_record_label', function (req, res) {
     });
 })
 
-
+//done
 api.post('/updateAlbum', function (req, res) {
     var album_name = req.body.album_name || req.query.album_name
+    var album_name_change = req.body.album_name_change || req.query.album_name_change
     var sales = req.body.sales || req.query.sales
     var riaa_ranking = req.body.riaa_ranking || req.query.riaa_ranking
     var artist_id = req.body.artist_id || req.query.artist_id
 
     var sql = 'UPDATE album SET album_name = ?, sales = ?, riaa_ranking = ? WHERE album_name = ?'
 
-    db.run(sql, [album_name, sales, riaa_ranking, album_name], function (err) {
+    db.run(sql, [album_name_change, sales, riaa_ranking, album_name], function (err) {
         if (err) {
             res.json({
                 type: false,
@@ -755,7 +759,7 @@ api.post('/updateArtist', function (req, res) {
     })
 })
 
-
+//DONE
 api.post('/updateSong', function (req, res) {
     var song_name = req.body.song_name || req.query.song_name
     var song_name_change = req.body.song_name_change || req.query.song_name_change
@@ -763,7 +767,7 @@ api.post('/updateSong', function (req, res) {
     var sales = req.body.sales || req.query.sales
     var riaa_ranking = req.body.riaa_ranking || req.query.riaa_ranking
     var features = req.body.features || req.query.features
-    var artist_id = req.body.artist_id || req.query.artist_id
+    //var artist_id = req.body.artist_id || req.query.artist_id
 
     var sql = 'UPDATE song SET song_name = ?, duration = ?, sales = ?, riaa_ranking = ?, features = ? WHERE song_name = ?;'
     db.run(sql, [song_name_change, duration, sales, riaa_ranking, features, song_name], function (err) {
@@ -782,14 +786,12 @@ api.post('/updateSong', function (req, res) {
     })
 })
 
-
+//DONE 
 api.post('/updateTour', function (req, res) {
     var tour_name = req.body.tour_name || req.query.tour_name
     var price = req.body.price || req.query.price
-    var tour_id = req.body.tour_id || req.query.tour_id
     var tour_name_change = req.body.tour_name_change || req.query.tour_name_change
-    var artist_id = req.body.artist_id || req.query.artist_id
-
+    
     var sql = 'UPDATE tour SET tour_name = ?, price = ? WHERE tour_name = ?;'
     db.run(sql, [tour_name_change, price, tour_name], function (err) {
         if (err) {
@@ -807,13 +809,13 @@ api.post('/updateTour', function (req, res) {
     })
 })
 
-
+//DONE DONE DONE DONE DONE
 api.post('/newAlbum', function (req, res) {
     var album_name = req.body.album_name || req.query.album_name
     var sales = req.body.sales || req.query.sales
     var riaa_ranking = req.body.riaa_ranking || req.query.riaa_ranking
     var artist_id = req.body.artist_id || req.query.artist_id
-    var album_id;
+    
 
     var sql = 'INSERT INTO album(album_name, sales, riaa_ranking) VALUES (?,?,?);'
     var sql2 = 'SELECT album_id FROM album WHERE album_name = ?;'
@@ -827,7 +829,7 @@ api.post('/newAlbum', function (req, res) {
                 })
             }
         })
-        db.each(sql2, [album_name], function (err, row) {
+        db.get(sql2, [album_name], function (err, row) {
             if (err) {
                 res.json({
                     type: false,
@@ -835,14 +837,14 @@ api.post('/newAlbum', function (req, res) {
                 })
             }
             else {
-                album_id = row.album_id
-            }
+                albumID = row.album_id
+                }
         })
-        db.run(sql3, [artist_id, album_id], function (err) {
+        db.run(sql3, [artist_id, albumID], function (err) {
             if (err) {
                 res.json({
                     type: false,
-                    data: 'inserting new album failed in has album'
+                    data: err
                 })
             }
             else {
@@ -854,20 +856,19 @@ api.post('/newAlbum', function (req, res) {
         })
     })
 })
-
+//DONE DONE DONE DONE
 api.post('/newArtist', function (req, res) {
     var artist_name = req.body.artist_name || req.query.artist_name
-
     var sql = 'INSERT INTO artist(artist_id, artist_name) VALUES (?, ?);'
-
     db.run(sql, [artistID, artist_name], function (err) {
         if (err) {
             res.json({
                 type: false,
-                data: 'inserting new artit'
+                data: err
             })
         }
         else {
+            artistID++;
             res.json({
                 type: true,
                 data: 'Artist has been inserted'
@@ -876,12 +877,83 @@ api.post('/newArtist', function (req, res) {
     })
 })
 
+
+api.post('/newSong', function(req, res){
+    var song_name = req.body.song_name || req.query.song_name
+    var duration = req.body.duration || req.query.duration
+    var sales = req.body.sales || req.query.sales
+    var riaa_ranking = req.body.riaa_ranking || req.query.riaa_ranking
+    var features = req.body.features || req.query.features
+    var artist_id = req.body.artist_id || req.query.artist_id
+    var album_id = req.body.album_id || req.query.album_id
+
+    console.log(song_name)
+    console.log(duration)
+    console.log(sales)
+    console.log(riaa_ranking)
+
+    var sql = 'INSERT INTO song(song_name, duration, sales, riaa_ranking, features) VALUES (?,?,?,?,?);'
+    var sql2 = 'SELECT song_id FROM song WHERE song_name = ?'
+    var sql3 = 'INSERT INTO has_song(artist_id, song_id) VALUES (?,?)'
+    var sql4 = 'INSERT INTO is_in(album_id, song_id) VALUES (?,?)'
+
+    db.serialize(()=>{
+        db.run(sql, [song_name, duration, sales, riaa_ranking, features], function (err) {
+            if (err) {
+                res.json({
+                    type: false,
+                    data: err
+                })
+            }
+            else {
+                console.log('created new song')
+            }
+        })
+        db.get(sql2, [song_name], function(err, row){
+            if(err){
+                res.json({type: false, data: err})
+            }
+            else{
+                console.log(row);
+                songID = row.song_id;
+                //console.log(song)
+                db.run(sql3, [artist_id, songID], function(err){
+                    if(err){
+                        res.json({
+                            type: false,
+                            data: err
+                        })
+                    }
+                    else{
+                        console.log('this is the fnal one')
+                        db.run(sql4, [album_id, songID], function(err){
+                            if(err){
+                                res.json({
+                                    type: false,
+                                    data: err
+                                })
+                            }
+                            else{
+                                res.json({
+                                    type: true,
+                                    data: 'succesfully updated song'
+                                })
+                            }
+                        })
+                    }
+                })
+            }
+        })
+
+    })
+})
+
+//DONE DONE DONE DONE DONE
 api.post('/newTour', function (req, res) {
     var tour_name = req.body.tour_name || req.query.tour_name
     var price = req.body.price || req.query.price
     var artist_id = req.body.artist_id || req.query.artist_id
-    var tour_id;
-
+    
     var sql = 'INSERT INTO tour(tour_name, price) VALUES (?,?);'
     var sql2 = 'SELECT tour_id FROM tour WHERE tour_name = ?;'
     var sql3 = 'INSERT INTO going_to(tour_id, artist_id) VALUES (?,?);'
@@ -895,11 +967,10 @@ api.post('/newTour', function (req, res) {
                 })
             }
             else {
-                console.log('tour inserted')
             }
         })
 
-        db.all(sql2, [tour_name], function (err, row) {
+        db.get(sql2, [tour_name], function (err, row) {
             if (err) {
                 res.json({
                     type: false,
@@ -907,22 +978,21 @@ api.post('/newTour', function (req, res) {
                 })
             }
             else {
-                tour_id = row.tour_id
-            }
-        })
-
-        db.run(sql3, [tour_id, artist_id], function (err) {
-            if (err) {
-                res.json({
-                    type: false,
-                    data: err
-                })
-            }
-            else {
-                console.log('tour going to inserted')
-                res.json({
-                    type: true,
-                    data: 'tour and going to is inserted'
+                
+                tourID = row.tour_id
+                db.run(sql3, [tourID, artist_id], function (err) {
+                    if (err) {
+                        res.json({
+                            type: false,
+                            data: err
+                        })
+                    }
+                    else {
+                        res.json({
+                            type: true,
+                            data: 'tour and going to is inserted'
+                        })
+                    }
                 })
             }
         })
