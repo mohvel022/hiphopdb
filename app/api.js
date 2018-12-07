@@ -2,7 +2,7 @@ var bcrypt = require('bcrypt-nodejs');
 var express = require('express');
 var api = express.Router();
 const sqlite3 = require('sqlite3').verbose();
-var artistID = 5;
+var artistID = 11;
 var albumID;
 var tourID;
 var songID;
@@ -89,46 +89,50 @@ api.get('/signin', function (req, res) {
     })
 })
 
-api.post('/signup', function(req, res){
+api.post('/signup', function (req, res) {
     var username = req.body.username || req.query.username;
     var password = req.body.password || req.query.password;
     var email = req.body.email || req.query.email;
     var artist = req.body.artist || req.query.artist;
     var artist_name = req.body.artist_name || req.query.artist_name
-    var sql = 'SELECT username, password, email FROM user WHERE username = ?';
+    var sql = 'SELECT * FROM user WHERE username = ?';
     var sql2 = 'INSERT INTO user(username, password, email, artist_id) VALUES (?, ?, ?, ?)';
     var sql3 = 'INSERT INTO artist(artist_id, artist_name) VALUES (?, ?)'
     var sql4 = 'INSERT INTO user(username, password, email) VALUES (?, ?, ?)';
     console.log(username + ' this is username 1')
     console.log(email + ' this is email')
-        db.all(sql, [username], function(err, row){
-            if(err){
+    db.serialize(() => {
+        db.all(sql, [username], function (err, row) {
+            if (err) {
                 res.json({
                     type: false,
                     data: err
                 })
             }
-            console.log('before check')
+            console.log('before check' + row)
             console.log(row.email + ' this is email')
             console.log(row.username + ' this is username')
-            if(row.email == email){
+            if (row.email == email) {
                 console.log('bedfdfre check')
                 res.json({
                     type: false,
                     data: 'User already exists!'
                 })
             }
-            else{
-                if(artist == 0){
+            else {
+                if (artist == 0) {
                     console.log('artist == 0')
-                    db.run(sql4, [username, password, email], function(err){
-                        if(err){
+                    db.run(sql4, [username, password, email], function (err) {
+                        if (err) {
+                            console.log(username + 'in the 0 function ')
+                            console.log(email + ' in the 0 function')
+                            console.log(password)
                             res.json({
                                 type: false,
                                 data: err
                             })
                         }
-                        else{
+                        else {
                             console.log('succesfully created user')
                             res.json({
                                 type: true,
@@ -138,27 +142,27 @@ api.post('/signup', function(req, res){
 
                     })
                 }
-                else{
-                    db.serialize(()=>{
-                        db.run(sql2, [username, password, email,artistID], function(err){
-                            if(err){
+                else {
+                    db.serialize(() => {
+                        db.run(sql2, [username, password, email, artistID], function (err) {
+                            if (err) {
                                 res.json({
                                     type: false,
                                     data: err
                                 })
                             }
-                            else{
+                            else {
                                 console.log('succesfully created user')
                             }
                         })
-                        db.run(sql3, [artistID, artist_name], function(err){
-                             if(err){
+                        db.run(sql3, [artistID, artist_name], function (err) {
+                            if (err) {
                                 res.json({
                                     type: false,
                                     data: err
                                 })
                             }
-                            else{
+                            else {
                                 artistID++;
                                 console.log('succesfully created artist')
                                 res.json({
@@ -170,9 +174,36 @@ api.post('/signup', function(req, res){
                     })
                 }
             }
-            
+
         })
+    })
 })
+
+
+api.get('/songs_in_album', function(req, res){
+	var album_name = req.body.album_name || req.query.album_name
+	console.log(album_name)
+	var sql = 'SELECT song_id, song_name, duration, song.sales, song.riaa_ranking FROM song, album, is_in WHERE song.song_id = is_in.song_id AND album.album_id = is_in.album_id AND album_name = ?'
+//	var sql = 'SELECT song_id,song_name,duration,sales,riaa_ranking,features FROM song s, is_in i WHERE s.song_id = i.song_id AND i.album_id=(SELECT album_id FROM album WHERE album_name = ?);'
+	db.all(sql, [album_name], function(err, row){
+		if(err){
+			res.json({
+				type: false,
+				data: err
+			})
+		}
+		else{
+			res.json({
+				type: true,
+				data: row
+			})
+		}
+	})
+})
+
+
+
+
 
 
 
@@ -314,7 +345,7 @@ api.get('/songs', function (req, res) {
 
 api.get('/album_of_artist', function (req, res) {
     var artist_name = req.body.artist_name || req.query.artist_name
-    var sql = 'SELECT artist_name, album_name, sales, riaa_ranking FROM album, artist, has_album ha WHERE artist.artist_name = ? AND ha.artist_id = artist.artist_id AND ha.album_id = album.album_id'
+    var sql = 'SELECT * FROM album, artist, has_album ha WHERE artist.artist_name = ? AND ha.artist_id = artist.artist_id AND ha.album_id = album.album_id'
 
     db.all(sql, artist_name, function (err, row) {
         if (err) {
@@ -439,9 +470,9 @@ api.get('/artists_total_sales', function (req, res) {
 api.get('/more_than_sales_artist', function (req, res) {
     var sales = req.body.sales || req.query.sales
 
-    var sql = 'SELECT DISTINCT artist_name FROM artist a, album al, has_album ha WHERE a.artist_id = ha.artist_id AND ha.album_id = al.album_id GROUP BY artist_name HAVING SUM(al.sales) > ? ORDER BY SUM(al.sales) ASC;'
-
-    db.all(sql, sales, function (err, row) {
+    var sql = 'SELECT DISTINCT artist_name FROM artist a, album al, has_album ha WHERE a.artist_id = ha.artist_id AND ha.album_id = al.album_id AND al.sales > ? GROUP BY artist_name'
+    
+    db.all(sql, [sales],function (err, row) {
         if (err) {
             res.json({
                 type: false,
@@ -486,7 +517,7 @@ api.get('/tour_between_dates', function (req, res) {
     var firstdate = req.body.firstdate || req.query.firstdate
     var seconddate = req.body.seconddate || req.query.seconddate
 
-    var sql = 'SELECT artist_name, tour_name, date_of_show, city, state, country FROM artist, tour, tour_in_location tl, tour_location, going_to gt WHERE tour.tour_id = tl.tour_id AND tour_location.location_id = tl.location_id AND gt.artist_id = artist.artist_id AND gt.tour_id = tour.tour_id AND date_of_show between ? AND ?'
+    var sql = 'SELECT artist_name, tour_name, price, date_of_show, city, state, country FROM artist, tour, tour_in_location tl, tour_location, going_to gt WHERE tour.tour_id = tl.tour_id AND tour_location.location_id = tl.location_id AND gt.artist_id = artist.artist_id AND gt.tour_id = tour.tour_id AND date_of_show between ? AND ?'
 
     db.all(sql, [firstdate, seconddate], function (err, row) {
         if (err) {
@@ -511,7 +542,7 @@ api.get('/tour_between_dates_by_artist', function (req, res) {
     var seconddate = req.body.seconddate || req.query.seconddate
     var artist_name = req.body.artist_name || req.query.artist_name
 
-    var sql = 'SELECT artist_name, tour_name, date_of_show, city, state, country FROM artist, tour, tour_in_location tl, tour_location, going_to gt WHERE tour.tour_id = tl.tour_id AND tour_location.location_id = tl.location_id AND gt.artist_id = artist.artist_id AND gt.tour_id = tour.tour_id AND date_of_show between ? AND ? AND artist_name = ? GROUP BY artist_name'
+    var sql = 'SELECT artist_name, tour_name, price, date_of_show, city, state, country FROM artist, tour, tour_in_location tl, tour_location, going_to gt WHERE tour.tour_id = tl.tour_id AND tour_location.location_id = tl.location_id AND gt.artist_id = artist.artist_id AND gt.tour_id = tour.tour_id AND date_of_show between ? AND ? AND artist_name = ? GROUP BY artist_name'
 
     db.all(sql, [firstdate, seconddate, artist_name], function (err, row) {
         if (err) {
@@ -555,9 +586,9 @@ api.get('/tours', function (req, res) {
 api.get('/tour_in_city', function (req, res) {
     var city = req.body.city || req.query.city
 
-    var sql = 'SELECT artist_name, tour_name, date_of_show, city, state, country FROM artist, tour, tour_in_location tl, tour_location, going_to gt WHERE tour.tour_id = tl.tour_id AND tour_location.location_id = tl.location_id AND gt.artist_id = artist.artist_id AND gt.tour_id = tour.tour_id AND tour_city = ?'
+    var sql = 'SELECT artist_name, tour_name, price, date_of_show, city, state, country FROM artist, tour, tour_in_location tl, tour_location, going_to gt WHERE tour.tour_id = tl.tour_id AND tour_location.location_id = tl.location_id AND gt.artist_id = artist.artist_id AND gt.tour_id = tour.tour_id AND tour_location.city = ?'
 
-    db.all(sql, city, function (err, row) {
+    db.all(sql, [city], function (err, row) {
         if (err) {
             res.json({
                 type: false,
@@ -578,7 +609,7 @@ api.get('/tour_in_city_by_artist', function (req, res) {
     var city = req.body.city || req.query.city
     var artist_name = req.body.artist_name || req.query.artist_name
 
-    var sql = 'SELECT artist_name, tour_name, date_of_show, city, state, country FROM artist, tour, tour_in_location tl, tour_location, going_to gt WHERE tour.tour_id = tl.tour_id AND tour_location.location_id = tl.location_id AND gt.artist_id = artist.artist_id AND gt.tour_id = tour.tour_id AND tour_city = ? AND artist_name = ?'
+    var sql = 'SELECT artist_name, tour_name, price, date_of_show, city, state, country FROM artist, tour, tour_in_location tl, tour_location, going_to gt WHERE tour.tour_id = tl.tour_id AND tour_location.location_id = tl.location_id AND gt.artist_id = artist.artist_id AND gt.tour_id = tour.tour_id AND tour_location.city = ? AND artist_name = ?'
 
     db.all(sql, [city, artist_name], function (err, row) {
         if (err) {
@@ -600,7 +631,7 @@ api.get('/tour_in_city_by_artist', function (req, res) {
 api.get('/tour_in_state', function (req, res) {
     var state = req.body.state || req.query.state
 
-    var sql = 'SELECT artist_name, tour_name, date_of_show, city, state, country FROM artist, tour, tour_in_location tl, tour_location, going_to gt WHERE tour.tour_id = tl.tour_id AND tour_location.location_id = tl.location_id AND gt.artist_id = artist.artist_id AND gt.tour_id = tour.tour_id AND state = ?'
+    var sql = 'SELECT artist_name, tour_name, price, date_of_show, city, state, country FROM artist, tour, tour_in_location tl, tour_location, going_to gt WHERE tour.tour_id = tl.tour_id AND tour_location.location_id = tl.location_id AND gt.artist_id = artist.artist_id AND gt.tour_id = tour.tour_id AND tour_location.state = ?'
 
     db.all(sql, [state], function (err, row) {
         if (err) {
@@ -622,7 +653,7 @@ api.get('/tour_in_state', function (req, res) {
 api.get('/tour_in_state_by_artist', function (req, res) {
     var state = req.body.state || req.query.state
     var artist_name = req.body.artist_name || req.query.artist_name
-    var sql = 'SELECT artist_name, tour_name, date_of_show, city, state, country FROM artist, tour, tour_in_location tl, tour_location, going_to gt WHERE tour.tour_id = tl.tour_id AND tour_location.location_id = tl.location_id AND gt.artist_id = artist.artist_id AND gt.tour_id = tour.tour_id AND tour_state = ? AND artist_name = ?'
+    var sql = 'SELECT artist_name, tour_name, price, date_of_show, city, state, country FROM artist, tour, tour_in_location tl, tour_location, going_to gt WHERE tour.tour_id = tl.tour_id AND tour_location.location_id = tl.location_id AND gt.artist_id = artist.artist_id AND gt.tour_id = tour.tour_id AND tour_location.state = ? AND artist_name = ?'
 
     db.all(sql, [state, artist_name], function (err, row) {
         if (err) {
@@ -647,7 +678,7 @@ api.get('/tour_in_state_by_artist', function (req, res) {
 api.get('/tour_in_country_by_artist', function (req, res) {
     var country = req.body.country || req.query.country
     var artist_name = req.body.artist_name || req.query.artist_name
-    var sql = 'SELECT artist_name, tour_name, date_of_show, city, state, country FROM artist, tour, tour_in_location tl, tour_location, going_to gt WHERE tour.tour_id = tl.tour_id AND tour_location.location_id = tl.location_id AND gt.artist_id = artist.artist_id AND gt.tour_id = tour.tour_id AND tour_country = ? AND artist_name = ?'
+    var sql = 'SELECT artist_name, tour_name, price, date_of_show, city, state, country FROM artist, tour, tour_in_location tl, tour_location, going_to gt WHERE tour.tour_id = tl.tour_id AND tour_location.location_id = tl.location_id AND gt.artist_id = artist.artist_id AND gt.tour_id = tour.tour_id AND tour_location.country = ? AND artist_name = ?'
 
     db.all(sql, [country, artist_name], function (err, row) {
         if (err) {
@@ -670,7 +701,7 @@ api.get('/tour_in_country_by_artist', function (req, res) {
 api.get('/tour_in_country', function (req, res) {
     var country = req.body.country || req.query.country
 
-    var sql = 'SELECT artist_name, tour_name, date_of_show, city, state, country FROM artist, tour, tour_in_location tl, tour_location, going_to gt WHERE tour.tour_id = tl.tour_id AND tour_location.location_id = tl.location_id AND gt.artist_id = artist.artist_id AND gt.tour_id = tour.tour_id AND tour_country = ?'
+    var sql = 'SELECT artist_name, tour_name, price, date_of_show, city, state, country FROM artist, tour, tour_in_location tl, tour_location, going_to gt WHERE tour.tour_id = tl.tour_id AND tour_location.location_id = tl.location_id AND gt.artist_id = artist.artist_id AND gt.tour_id = tour.tour_id AND tour_location.country = ?'
 
     db.all(sql, [country], function (err, row) {
         if (err) {
@@ -693,7 +724,7 @@ api.get('/tour_in_country', function (req, res) {
 
 
 api.get('/sales_record_label', function (req, res) {
-    var sql = 'SELECT record_label.r_name, DISTINCT artist_name, SUM(al.sales) FROM artist a, album al, has_album ha, record_label, record_contract WHERE a.artist_id = ha.artist_id AND ha.album_id = al.album_id AND record_label.r_id = record_contract.r_id AND record_contract.artist_id = a.artist_id GROUP BY record_label.r_name ORDER BY SUM(al.sales) ASC'
+    var sql = 'SELECT record_label.r_name, artist_name, SUM(al.sales) FROM artist a, album al, has_album ha, record_label, record_contract WHERE a.artist_id = ha.artist_id AND ha.album_id = al.album_id AND record_label.r_id = record_contract.r_id AND record_contract.artist_id = a.artist_id GROUP BY record_label.r_name ORDER BY SUM(al.sales) ASC'
 
     db.all(sql, function (err, row) {
         if (err) {
@@ -791,7 +822,7 @@ api.post('/updateTour', function (req, res) {
     var tour_name = req.body.tour_name || req.query.tour_name
     var price = req.body.price || req.query.price
     var tour_name_change = req.body.tour_name_change || req.query.tour_name_change
-    
+
     var sql = 'UPDATE tour SET tour_name = ?, price = ? WHERE tour_name = ?;'
     db.run(sql, [tour_name_change, price, tour_name], function (err) {
         if (err) {
@@ -815,7 +846,7 @@ api.post('/newAlbum', function (req, res) {
     var sales = req.body.sales || req.query.sales
     var riaa_ranking = req.body.riaa_ranking || req.query.riaa_ranking
     var artist_id = req.body.artist_id || req.query.artist_id
-    
+    console.log(album_name + '  ' + sales + '  ' + riaa_ranking + '   ' + artist_id)
 
     var sql = 'INSERT INTO album(album_name, sales, riaa_ranking) VALUES (?,?,?);'
     var sql2 = 'SELECT album_id FROM album WHERE album_name = ?;'
@@ -823,42 +854,54 @@ api.post('/newAlbum', function (req, res) {
     db.serialize(() => {
         db.run(sql, [album_name, sales, riaa_ranking], function (err) {
             if (err) {
-                res.json({
-                    type: false,
-                    data: 'inserting new album failed in album insert'
-                })
-            }
-        })
-        db.get(sql2, [album_name], function (err, row) {
-            if (err) {
-                res.json({
-                    type: false,
-                    data: 'inserting new album failed in album id'
-                })
-            }
-            else {
-                albumID = row.album_id
-                }
-        })
-        db.run(sql3, [artist_id, albumID], function (err) {
-            if (err) {
+                console.log('one')
                 res.json({
                     type: false,
                     data: err
                 })
             }
             else {
-                res.json({
-                    type: true,
-                    data: 'album has been added and has album also inserted and connected to artist'
+                console.log('completed 1')
+                db.get(sql2, [album_name], function (err, row) {
+                    if (err) {
+                        console.log('2')
+                        res.json({
+                            type: false,
+                            data: 'inserting new album failed in album id'
+                        })
+                    }
+                    else {
+                        console.log(row)
+                        console.log(row.album_id)
+                        albumID = row.album_id
+                        console.log(albumID)
+                        db.run(sql3, [artist_id, albumID], function (err) {
+                            if (err) {
+                                res.json({
+                                    type: false,
+                                    data: err
+                                })
+                            }
+                            else {
+                                res.json({
+                                    type: true,
+                                    data: 'album has been added and has album also inserted and connected to artist'
+                                })
+                            }
+                        })
+                    }
                 })
             }
         })
+
+        
     })
 })
 //DONE DONE DONE DONE
 api.post('/newArtist', function (req, res) {
     var artist_name = req.body.artist_name || req.query.artist_name
+	console.log(artist_name)
+	console.log(artistID)
     var sql = 'INSERT INTO artist(artist_id, artist_name) VALUES (?, ?);'
     db.run(sql, [artistID, artist_name], function (err) {
         if (err) {
@@ -878,7 +921,7 @@ api.post('/newArtist', function (req, res) {
 })
 
 
-api.post('/newSong', function(req, res){
+api.post('/newSong', function (req, res) {
     var song_name = req.body.song_name || req.query.song_name
     var duration = req.body.duration || req.query.duration
     var sales = req.body.sales || req.query.sales
@@ -897,7 +940,7 @@ api.post('/newSong', function(req, res){
     var sql3 = 'INSERT INTO has_song(artist_id, song_id) VALUES (?,?)'
     var sql4 = 'INSERT INTO is_in(album_id, song_id) VALUES (?,?)'
 
-    db.serialize(()=>{
+    db.serialize(() => {
         db.run(sql, [song_name, duration, sales, riaa_ranking, features], function (err) {
             if (err) {
                 res.json({
@@ -909,31 +952,31 @@ api.post('/newSong', function(req, res){
                 console.log('created new song')
             }
         })
-        db.get(sql2, [song_name], function(err, row){
-            if(err){
-                res.json({type: false, data: err})
+        db.get(sql2, [song_name], function (err, row) {
+            if (err) {
+                res.json({ type: false, data: err })
             }
-            else{
+            else {
                 console.log(row);
                 songID = row.song_id;
                 //console.log(song)
-                db.run(sql3, [artist_id, songID], function(err){
-                    if(err){
+                db.run(sql3, [artist_id, songID], function (err) {
+                    if (err) {
                         res.json({
                             type: false,
                             data: err
                         })
                     }
-                    else{
+                    else {
                         console.log('this is the fnal one')
-                        db.run(sql4, [album_id, songID], function(err){
-                            if(err){
+                        db.run(sql4, [album_id, songID], function (err) {
+                            if (err) {
                                 res.json({
                                     type: false,
                                     data: err
                                 })
                             }
-                            else{
+                            else {
                                 res.json({
                                     type: true,
                                     data: 'succesfully updated song'
@@ -953,7 +996,7 @@ api.post('/newTour', function (req, res) {
     var tour_name = req.body.tour_name || req.query.tour_name
     var price = req.body.price || req.query.price
     var artist_id = req.body.artist_id || req.query.artist_id
-    
+
     var sql = 'INSERT INTO tour(tour_name, price) VALUES (?,?);'
     var sql2 = 'SELECT tour_id FROM tour WHERE tour_name = ?;'
     var sql3 = 'INSERT INTO going_to(tour_id, artist_id) VALUES (?,?);'
@@ -978,7 +1021,7 @@ api.post('/newTour', function (req, res) {
                 })
             }
             else {
-                
+
                 tourID = row.tour_id
                 db.run(sql3, [tourID, artist_id], function (err) {
                     if (err) {
@@ -1021,12 +1064,35 @@ api.post('/newRecordLabel', function (req, res) {
     })
 })
 
+
+api.post('/deleteSong', function(req,res){
+	var song_id = req.body.song_id || req.query.song_id
+
+	var sql = 'DELETE FROM song WHERE song_id = ?'
+	db.run(sql, [song_id], function(err){
+		if(err){
+			res.json({
+				type: false,
+				data: err
+			})
+		}
+		else{
+			res.json({
+				type: false,
+				data: 'deleted song'
+			})
+		}
+	})
+})
+
+
+
 api.post('/deleteAlbum', function (req, res) {
-    var album_id = req.body.album_id || req.query.album_id
+    var album_name = req.body.album_name || req.query.album_name
 
-    var sql = 'DELETE FROM album WHERE album_id = ?;'
+    var sql = 'DELETE FROM album WHERE album_name = ?;'
 
-    db.run(sql, [album_id], function (err) {
+    db.run(sql, [album_name], function (err) {
         if (err) {
             res.json({
                 type: false,
